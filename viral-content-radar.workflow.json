@@ -6,142 +6,469 @@
       "name": "Every Morning 8AM",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
-      "position": [40, 240],
-      "parameters": { "rule": { "interval": [{ "field": "days", "daysInterval": 1, "triggerAtHour": 8, "triggerAtMinute": 0 }] } }
+      "position": [
+        40,
+        240
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
     },
     {
       "id": "9c57ef6e-dae8-4ef4-9ab3-0454fc6db939",
       "name": "Set Niche",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [40, 460],
-      "parameters": { "mode": "manual", "includeOtherFields": false, "assignments": { "assignments": [{ "id": "n1", "name": "niche", "value": "ai automation", "type": "string" }] } }
+      "position": [
+        40,
+        460
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "n1",
+              "name": "niche",
+              "value": "ai automation",
+              "type": "string"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "1d7cffc6-b611-4131-a0fb-35098c586063",
       "name": "AnyAPI: TikTok Top",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [380, 240],
-      "parameters": { "method": "POST", "url": "https://api.getanyapi.com/v1/run/tiktok.search_top", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendBody": true, "contentType": "json", "specifyBody": "json", "jsonBody": "={ \"query\": \"{{ $json.niche }}\" }" }
+      "type": "n8n-nodes-anyapi.anyApi",
+      "typeVersion": 1,
+      "position": [
+        380,
+        240
+      ],
+      "parameters": {
+        "operation": "run",
+        "sku": "tiktok.search_top",
+        "inputMode": "json",
+        "input": "={ \"query\": \"{{ $json.niche }}\" }",
+        "options": {}
+      }
     },
     {
       "id": "97fe261b-8d69-464c-b09f-130f8a7c6623",
       "name": "AnyAPI: Instagram Reels",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [380, 480],
-      "parameters": { "method": "POST", "url": "https://api.getanyapi.com/v1/run/instagram.reels_search", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendBody": true, "contentType": "json", "specifyBody": "json", "jsonBody": "={ \"query\": \"{{ $json.niche }}\", \"datePosted\": \"last-week\" }" }
+      "type": "n8n-nodes-anyapi.anyApi",
+      "typeVersion": 1,
+      "position": [
+        380,
+        480
+      ],
+      "parameters": {
+        "operation": "run",
+        "sku": "instagram.reels_search",
+        "inputMode": "json",
+        "input": "={ \"query\": \"{{ $json.niche }}\", \"datePosted\": \"last-week\" }",
+        "options": {}
+      }
     },
     {
       "id": "da0ccf71-db10-4295-8f8c-40c0d9db0b46",
       "name": "Combine Sources",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [720, 280],
-      "parameters": { "mode": "append" }
+      "position": [
+        720,
+        280
+      ],
+      "parameters": {
+        "mode": "append"
+      }
     },
     {
       "id": "7cb7a756-e600-4b15-a450-cc8654cac638",
       "name": "Rank Top Viral",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [720, 480],
-      "parameters": { "mode": "runOnceForAllItems", "language": "javaScript", "jsCode": "const tk = ($('AnyAPI: TikTok Top').first().json.output) || {};\nconst ig = ($('AnyAPI: Instagram Reels').first().json.output) || {};\nconst tkItems = (tk.data && tk.data.items) || tk.items || [];\nconst igItems = (ig.data && ig.data.reels) || ig.reels || [];\nconst rows = [];\nfor (const v of tkItems) { rows.push({ platform: 'TikTok', author: v.author || '', caption: v.caption || '', url: v.url || '', views: Number(v.views) || 0, likes: Number(v.likes) || 0, comments: Number(v.comments) || 0 }); }\nfor (const v of igItems) { rows.push({ platform: 'Instagram Reels', author: v.username || '', caption: v.caption || '', url: v.url || '', views: Number(v.views) || Number(v.plays) || 0, likes: Number(v.likes) || 0, comments: Number(v.comments) || 0 }); }\nrows.sort(function (a, b) { return b.views - a.views; });\nconst top = rows.slice(0, 8);\nconst lines = [];\nfor (let i = 0; i < top.length; i++) { const v = top[i]; lines.push((i + 1) + '. [' + v.platform + '] @' + v.author + ' - ' + (v.views || 0).toLocaleString() + ' views, ' + (v.likes || 0).toLocaleString() + ' likes\\n   Caption: ' + String(v.caption || '').slice(0, 180) + '\\n   URL: ' + v.url); }\nconst niche = $('Set Niche').first().json.niche;\nconst videosText = lines.join('\\n\\n');\nreturn [{ json: { niche: niche, generatedAt: $now.toISO(), count: top.length, videos: top, videosText: videosText } }];" }
+      "position": [
+        720,
+        480
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const tk = ($('AnyAPI: TikTok Top').first().json.output) || {};\nconst ig = ($('AnyAPI: Instagram Reels').first().json.output) || {};\nconst tkItems = (tk.data && tk.data.items) || tk.items || [];\nconst igItems = (ig.data && ig.data.reels) || ig.reels || [];\nconst rows = [];\nfor (const v of tkItems) { rows.push({ platform: 'TikTok', author: v.author || '', caption: v.caption || '', url: v.url || '', views: Number(v.views) || 0, likes: Number(v.likes) || 0, comments: Number(v.comments) || 0 }); }\nfor (const v of igItems) { rows.push({ platform: 'Instagram Reels', author: v.username || '', caption: v.caption || '', url: v.url || '', views: Number(v.views) || Number(v.plays) || 0, likes: Number(v.likes) || 0, comments: Number(v.comments) || 0 }); }\nrows.sort(function (a, b) { return b.views - a.views; });\nconst top = rows.slice(0, 8);\nconst lines = [];\nfor (let i = 0; i < top.length; i++) { const v = top[i]; lines.push((i + 1) + '. [' + v.platform + '] @' + v.author + ' - ' + (v.views || 0).toLocaleString() + ' views, ' + (v.likes || 0).toLocaleString() + ' likes\\n   Caption: ' + String(v.caption || '').slice(0, 180) + '\\n   URL: ' + v.url); }\nconst niche = $('Set Niche').first().json.niche;\nconst videosText = lines.join('\\n\\n');\nreturn [{ json: { niche: niche, generatedAt: $now.toISO(), count: top.length, videos: top, videosText: videosText } }];"
+      }
     },
     {
       "id": "6f35b8e6-fd72-430f-a3ef-e1fa71e8a52a",
       "name": "OpenRouter Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
-      "position": [1020, 520],
-      "parameters": { "model": "openai/gpt-4.1-mini" }
+      "position": [
+        1020,
+        520
+      ],
+      "parameters": {
+        "model": "openai/gpt-4.1-mini"
+      }
     },
     {
       "id": "ce83477c-431a-4029-b136-7ab543a2a5be",
       "name": "Write Replication Brief",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
-      "position": [1020, 280],
-      "parameters": { "promptType": "define", "text": "=Niche: {{ $json.niche }}\n\nToday's top performing TikToks and Reels in this niche:\n\n{{ $json.videosText }}", "options": { "systemMessage": "You are a short-form video strategist. For each video provided, explain in 1-2 sentences why it likely went viral (hook, format, emotion, or trend), then give a 3-step plan to replicate it for the user's own brand. Output clean Markdown with a heading per video, and finish with one \"Pattern of the day\" takeaway across all of them." } }
+      "position": [
+        1020,
+        280
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Niche: {{ $json.niche }}\n\nToday's top performing TikToks and Reels in this niche:\n\n{{ $json.videosText }}",
+        "options": {
+          "systemMessage": "You are a short-form video strategist. For each video provided, explain in 1-2 sentences why it likely went viral (hook, format, emotion, or trend), then give a 3-step plan to replicate it for the user's own brand. Output clean Markdown with a heading per video, and finish with one \"Pattern of the day\" takeaway across all of them."
+        }
+      }
     },
     {
       "id": "07822e78-7e5c-433b-afdb-e421fed1a116",
       "name": "Email the Brief",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
-      "position": [1340, 240],
-      "parameters": { "resource": "message", "operation": "send", "sendTo": "you@example.com", "subject": "=Daily viral {{ $('Set Niche').item.json.niche }} brief - {{ $now.toFormat('LLL d') }}", "emailType": "text", "message": "={{ $json.output }}", "options": {} }
+      "position": [
+        1340,
+        240
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "you@example.com",
+        "subject": "=Daily viral {{ $('Set Niche').item.json.niche }} brief - {{ $now.toFormat('LLL d') }}",
+        "emailType": "text",
+        "message": "={{ $json.output }}",
+        "options": {}
+      }
     },
     {
       "id": "d85866ba-9cd3-4ef8-809d-38b907ea980b",
       "name": "Split Out Videos",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
-      "position": [1340, 520],
-      "parameters": { "fieldToSplitOut": "videos", "include": "noOtherFields" }
+      "position": [
+        1340,
+        520
+      ],
+      "parameters": {
+        "fieldToSplitOut": "videos",
+        "include": "noOtherFields"
+      }
     },
     {
       "id": "1d77d55e-7207-4530-9daa-e8a86af6d85c",
       "name": "Log Viral Finds",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
-      "position": [1560, 520],
-      "parameters": { "resource": "sheet", "operation": "append", "documentId": { "__rl": true, "mode": "id", "value": "", "cachedResultName": "Select your spreadsheet" }, "sheetName": { "__rl": true, "mode": "name", "value": "Sheet1" }, "columns": { "mappingMode": "defineBelow", "value": { "Date": "={{ $now.toISODate() }}", "Platform": "={{ $json.platform }}", "Author": "={{ $json.author }}", "Views": "={{ $json.views }}", "Likes": "={{ $json.likes }}", "URL": "={{ $json.url }}", "Caption": "={{ $json.caption }}" }, "schema": [{ "id": "Date", "displayName": "Date", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true }, { "id": "Platform", "displayName": "Platform", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true }, { "id": "Author", "displayName": "Author", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true }, { "id": "Views", "displayName": "Views", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true }, { "id": "Likes", "displayName": "Likes", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true }, { "id": "URL", "displayName": "URL", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true }, { "id": "Caption", "displayName": "Caption", "type": "string", "required": false, "defaultMatch": false, "display": true, "canBeUsedToMatch": true }] } }
+      "position": [
+        1560,
+        520
+      ],
+      "parameters": {
+        "resource": "sheet",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "",
+          "cachedResultName": "Select your spreadsheet"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $now.toISODate() }}",
+            "Platform": "={{ $json.platform }}",
+            "Author": "={{ $json.author }}",
+            "Views": "={{ $json.views }}",
+            "Likes": "={{ $json.likes }}",
+            "URL": "={{ $json.url }}",
+            "Caption": "={{ $json.caption }}"
+          },
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Platform",
+              "displayName": "Platform",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Author",
+              "displayName": "Author",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Views",
+              "displayName": "Views",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Likes",
+              "displayName": "Likes",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Caption",
+              "displayName": "Caption",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      }
     },
     {
       "id": "87779d26-4b0d-43a2-907f-3a1e2f42d20e",
       "name": "Band 1 Trigger",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-40, -40],
-      "parameters": { "content": "## 1. Trigger\n**Runs daily at 8AM.** Set your niche once - everything downstream reuses it.", "color": 7, "width": 320, "height": 900 }
+      "position": [
+        -40,
+        -40
+      ],
+      "parameters": {
+        "content": "## 1. Trigger\n**Runs daily at 8AM.** Set your niche once - everything downstream reuses it.",
+        "color": 7,
+        "width": 320,
+        "height": 900
+      }
     },
     {
       "id": "f7162074-b391-4238-ba6b-4a2b0b08d4fe",
       "name": "Band 2 Scrape",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [300, -40],
-      "parameters": { "content": "## 2. Scrape viral content\n**One AnyAPI key, two platforms.** Top TikToks + this week's Reels for your niche. Swap in 200+ more endpoints - same key.", "color": 5, "width": 320, "height": 900 }
+      "position": [
+        300,
+        -40
+      ],
+      "parameters": {
+        "content": "## 2. Scrape viral content\n**One AnyAPI key, two platforms.** Top TikToks + this week's Reels for your niche. Swap in 200+ more endpoints - same key.",
+        "color": 5,
+        "width": 320,
+        "height": 900
+      }
     },
     {
       "id": "e61acefe-16dd-42a0-a811-5aa436a3fcfa",
       "name": "Band 3 Rank",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [640, -40],
-      "parameters": { "content": "## 3. Rank by views\nMerge both platforms, sort by views, keep the top 8. About $0.01 per daily run, pay-per-request.", "color": 3, "width": 320, "height": 900 }
+      "position": [
+        640,
+        -40
+      ],
+      "parameters": {
+        "content": "## 3. Rank by views\nMerge both platforms, sort by views, keep the top 8. About $0.01 per daily run, pay-per-request.",
+        "color": 3,
+        "width": 320,
+        "height": 900
+      }
     },
     {
       "id": "aa33911f-2859-4862-a4d2-7ca778891729",
       "name": "Band 4 Analyze",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [960, -40],
-      "parameters": { "content": "## 4. AI: why it went viral\nThe agent explains each hook and gives a 3-step plan to replicate it. Swap the model freely (OpenRouter).", "color": 6, "width": 300, "height": 900 }
+      "position": [
+        960,
+        -40
+      ],
+      "parameters": {
+        "content": "## 4. AI: why it went viral\nThe agent explains each hook and gives a 3-step plan to replicate it. Swap the model freely (OpenRouter).",
+        "color": 6,
+        "width": 300,
+        "height": 900
+      }
     },
     {
       "id": "86114b65-d6a5-4283-bced-a9cd80892839",
       "name": "Band 5 Deliver",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [1280, -40],
-      "parameters": { "content": "## 5. Deliver\nEmail the brief to yourself and log every viral find to Google Sheets so the ideas stack up over time.", "color": 2, "width": 460, "height": 900 }
+      "position": [
+        1280,
+        -40
+      ],
+      "parameters": {
+        "content": "## 5. Deliver\nEmail the brief to yourself and log every viral find to Google Sheets so the ideas stack up over time.",
+        "color": 2,
+        "width": 460,
+        "height": 900
+      }
     }
   ],
   "connections": {
-    "Every Morning 8AM": { "main": [[{ "node": "Set Niche", "type": "main", "index": 0 }]] },
-    "Set Niche": { "main": [[{ "node": "AnyAPI: TikTok Top", "type": "main", "index": 0 }, { "node": "AnyAPI: Instagram Reels", "type": "main", "index": 0 }]] },
-    "AnyAPI: TikTok Top": { "main": [[{ "node": "Combine Sources", "type": "main", "index": 0 }]] },
-    "AnyAPI: Instagram Reels": { "main": [[{ "node": "Combine Sources", "type": "main", "index": 1 }]] },
-    "Combine Sources": { "main": [[{ "node": "Rank Top Viral", "type": "main", "index": 0 }]] },
-    "Rank Top Viral": { "main": [[{ "node": "Write Replication Brief", "type": "main", "index": 0 }, { "node": "Split Out Videos", "type": "main", "index": 0 }]] },
-    "Write Replication Brief": { "main": [[{ "node": "Email the Brief", "type": "main", "index": 0 }]] },
-    "OpenRouter Model": { "ai_languageModel": [[{ "node": "Write Replication Brief", "type": "ai_languageModel", "index": 0 }]] },
-    "Split Out Videos": { "main": [[{ "node": "Log Viral Finds", "type": "main", "index": 0 }]] }
+    "Every Morning 8AM": {
+      "main": [
+        [
+          {
+            "node": "Set Niche",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Niche": {
+      "main": [
+        [
+          {
+            "node": "AnyAPI: TikTok Top",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AnyAPI: Instagram Reels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AnyAPI: TikTok Top": {
+      "main": [
+        [
+          {
+            "node": "Combine Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AnyAPI: Instagram Reels": {
+      "main": [
+        [
+          {
+            "node": "Combine Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Combine Sources": {
+      "main": [
+        [
+          {
+            "node": "Rank Top Viral",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rank Top Viral": {
+      "main": [
+        [
+          {
+            "node": "Write Replication Brief",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Out Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Replication Brief": {
+      "main": [
+        [
+          {
+            "node": "Email the Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write Replication Brief",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out Videos": {
+      "main": [
+        [
+          {
+            "node": "Log Viral Finds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "pinData": {},
   "meta": {}
 }

@@ -1,0 +1,1016 @@
+{
+  "name": "Daily Viral Content Radar Pro (AnyAPI)",
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Onboard Your Website",
+        "formDescription": "Enter your website and we will figure out your niche and steer the daily content radar toward it.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Website URL",
+              "placeholder": "https://yoursite.com",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "48649ad9-d18f-4417-b9cf-89a69feb0907",
+      "name": "Onboard Your Website",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        224,
+        288
+      ],
+      "webhookId": "a32bfbf5-d76c-47d0-819d-99c398425806"
+    },
+    {
+      "parameters": {
+        "operation": "run",
+        "sku": "web.scrape",
+        "inputMode": "json",
+        "input": "={ \"url\": \"{{ $json['Website URL'] }}\" }",
+        "options": {}
+      },
+      "id": "1a458c5b-7247-41de-8383-99c3d281c647",
+      "name": "AnyAPI: Scrape Website",
+      "type": "n8n-nodes-anyapi.anyApi",
+      "typeVersion": 1,
+      "position": [
+        608,
+        288
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Title: {{ $json.output.data.title }}\nDescription: {{ $json.output.data.description }}\n\nBody:\n{{ $json.output.data.markdown }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a market-positioning analyst. Given the scraped text of a company's website, produce a profile used to steer a viral-short-form-content radar toward content THIS SPECIFIC business should study - not just its broad category.\n\nReturn a structured object with:\n- business: one or two concrete sentences on what this company actually does, its product, and who it is for (include product type + audience). No marketing fluff.\n- audience: a short phrase naming the specific people this business serves (e.g. 'couples and families managing money together', 'home baristas with an espresso machine').\n- niche: the broad category, 2-4 words, lowercase, for labeling only (e.g. 'personal finance').\n- searchTerms: 5 to 7 SPECIFIC short search phrases a creator for THIS business would use to find directly relevant short-form videos. Anchor them to the product, use-cases, and audience - NOT generic category terms. For a couples budgeting app prefer 'budgeting app', 'couple finances', 'net worth tracking', 'cancel subscriptions', 'sinking funds', 'money date' over generic 'personal finance', 'money management'. Lowercase, deduplicated, most relevant first, no brand name of THIS company.\n\nBase everything only on the provided text; if thin, infer the most likely specifics. Return only the structured object."
+        }
+      },
+      "id": "cbec8ea2-4c96-4df7-ba3f-ad08833629c2",
+      "name": "Extract Niche",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1008,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4-pro",
+        "options": {}
+      },
+      "id": "e91ec53d-d096-4cb4-9530-dcb552725a49",
+      "name": "Niche Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        944,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{ \"business\": \"Monarch is a budgeting and net-worth app for couples and families to track spending, manage subscriptions, and plan financial goals together.\", \"audience\": \"couples and families managing money together\", \"niche\": \"personal finance\", \"searchTerms\": [\"budgeting app\", \"couple finances\", \"net worth tracking\", \"cancel subscriptions\", \"mint alternative\", \"sinking funds\"] }"
+      },
+      "id": "50e8ba15-69c9-412a-a7f3-d3da60d6b69c",
+      "name": "Niche Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1168,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "niche_store"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "default"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "key"
+          ],
+          "value": {
+            "key": "default",
+            "niche": "={{ $json.output.niche }}",
+            "keywords": "={{ ($json.output.searchTerms || []).join(', ') }}",
+            "business": "={{ $json.output.business }}",
+            "audience": "={{ $json.output.audience }}"
+          },
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "niche",
+              "displayName": "niche",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "keywords",
+              "displayName": "keywords",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "business",
+              "displayName": "business",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "audience",
+              "displayName": "audience",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "25b85c04-49b7-4cd9-803f-aff4c1a4ddaa",
+      "name": "Save Niche",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "9e5b6f50-4fed-459a-b656-0fdb0310a7d9",
+      "name": "Every Morning 8AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        192,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "niche_store"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "default"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "a8a8f018-3d10-4163-a6ed-689f928d3ec2",
+      "name": "Read Niche",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst row = rows.find(function (i) { return i.json && (i.json.niche || i.json.keywords); }) || (rows[0] || { json: {} });\nconst j = row.json || {};\nconst niche = j.niche || 'personal finance';\nconst business = j.business || '';\nconst audience = j.audience || '';\nconst kwRaw = j.keywords || '';\nconst rawTerms = kwRaw ? String(kwRaw).split(',').map(function (s) { return s.trim(); }).filter(Boolean) : [];\nconst seen = new Set();\nconst terms = [];\nfor (const t of rawTerms) { const k = String(t).toLowerCase(); if (t && !seen.has(k)) { seen.add(k); terms.push(t); } }\nconst finalTerms = terms.slice(0, 4);\nif (finalTerms.length === 0) finalTerms.push(niche);\nconst orQuery = '(' + finalTerms.map(function (t) { return '\"' + t + '\"'; }).join(' OR ') + ') lang:en';\nreturn [{ json: { niche: niche, business: business, audience: audience, terms: finalTerms, orQuery: orQuery } }];"
+      },
+      "id": "3984cb67-c777-45af-a408-e3fb899ec9e1",
+      "name": "Resolve Niche",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "terms",
+        "options": {
+          "destinationFieldName": "term"
+        }
+      },
+      "id": "9b9f04ff-3efd-44a8-9146-b928795d6e02",
+      "name": "Split Terms",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "run",
+        "sku": "tiktok.search_top",
+        "inputMode": "json",
+        "input": "={ \"query\": \"{{ $json.term }}\", \"publishTime\": \"this-week\", \"sortBy\": \"most-liked\", \"region\": \"US\" }",
+        "options": {}
+      },
+      "id": "73636f39-31be-4edf-aae7-352b20ef090f",
+      "name": "TikTok Top",
+      "type": "n8n-nodes-anyapi.anyApi",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        704
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "run",
+        "sku": "youtube.search",
+        "inputMode": "json",
+        "input": "={ \"query\": \"{{ $json.term }}\", \"uploadDate\": \"this_week\", \"sortBy\": \"popular\" }",
+        "options": {}
+      },
+      "id": "10ec9057-c88a-4a3b-850a-ec6878ab01d0",
+      "name": "YouTube",
+      "type": "n8n-nodes-anyapi.anyApi",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        864
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "run",
+        "sku": "instagram.reels_search",
+        "inputMode": "json",
+        "input": "={ \"query\": \"{{ $json.term }}\", \"datePosted\": \"last-week\" }",
+        "options": {}
+      },
+      "id": "96eeb936-99bc-408a-a927-1038de51fd0c",
+      "name": "Instagram Reels",
+      "type": "n8n-nodes-anyapi.anyApi",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        1024
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "run",
+        "sku": "twitter.search",
+        "inputMode": "json",
+        "input": "={ \"query\": \"{{ $json.orQuery }} since:{{ $now.minus({ days: 7 }).toISODate() }}\", \"limit\": 15, \"queryType\": \"Top\" }",
+        "options": {}
+      },
+      "id": "3cb9792a-937e-467a-b441-c77c56ba4c38",
+      "name": "X Search",
+      "type": "n8n-nodes-anyapi.anyApi",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        1184
+      ],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "id": "d4be4c21-ccf1-4973-b262-08ab6fd0836d",
+      "name": "Combine Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1712,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let tk = [], ig = [], yt = [], tw = [];\ntry { tk = $('TikTok Top').all(); } catch (e) {}\ntry { ig = $('Instagram Reels').all(); } catch (e) {}\ntry { yt = $('YouTube').all(); } catch (e) {}\ntry { tw = $('X Search').all(); } catch (e) {}\nconst rows = [];\nfor (let i=0;i<tk.length;i++){ const o=(tk[i].json&&tk[i].json.output)||{}; const arr=(o.data&&o.data.items)||o.items||[]; for(const v of arr) rows.push({platform:'TikTok',author:v.author||'',caption:v.caption||'',url:v.url||'',views:Number(v.views)||0,likes:Number(v.likes)||0}); }\nfor (let i=0;i<ig.length;i++){ const o=(ig[i].json&&ig[i].json.output)||{}; const arr=(o.data&&o.data.reels)||o.reels||[]; for(const v of arr) rows.push({platform:'Instagram Reels',author:v.username||'',caption:v.caption||'',url:v.url||'',views:Number(v.views)||Number(v.plays)||0,likes:Number(v.likes)||0}); }\nfor (let i=0;i<yt.length;i++){ const o=(yt[i].json&&yt[i].json.output)||{}; const arr=(o.data&&o.data.videos)||o.videos||[]; for(const v of arr) rows.push({platform:'YouTube',author:v.channel||'',caption:v.title||'',url:v.url||'',views:Number(v.views)||0,likes:0}); }\nfor (let i=0;i<tw.length;i++){ const o=(tw[i].json&&tw[i].json.output)||{}; const arr=(o.data&&o.data.items)||o.items||[]; for(const v of arr) rows.push({platform:'X',author:(v.author&&v.author.userName)||'',caption:v.text||'',url:v.url||v.twitterUrl||'',views:Number(v.viewCount)||0,likes:Number(v.likeCount)||0}); }\nconst seen=new Set(); const deduped=[];\nfor(const r of rows){ const k=r.url||(r.platform+r.caption); if(k&&!seen.has(k)){seen.add(k);deduped.push(r);} }\nlet niche='your niche', business='', audience='', terms=[];\ntry { const rn=$('Resolve Niche').first().json; niche=rn.niche||niche; business=rn.business||''; audience=rn.audience||''; terms=rn.terms||[]; } catch(e){}\nconst stems = terms.join(' ').toLowerCase().split(/\\s+/).filter(function(w){return w.length>=4;}).map(function(w){return w.slice(0,5);});\nfor(const r of deduped){ const hay=(String(r.caption)+' '+String(r.author)).toLowerCase(); let rel=0; for(const s of stems){ if(s&&hay.indexOf(s)!==-1)rel++; } r.rel=rel; }\ndeduped.sort(function(a,b){ if(b.rel!==a.rel)return b.rel-a.rel; return b.views-a.views; });\nconst top=deduped.slice(0,30);\nconst lines=[];\nfor(let i=0;i<top.length;i++){ const v=top[i]; lines.push((i+1)+'. ['+v.platform+'] @'+v.author+' - '+(v.views||0).toLocaleString()+' views\\n   '+String(v.caption||'').slice(0,160)+'\\n   '+v.url); }\nreturn [{ json: { niche:niche, business:business, audience:audience, generatedAt:$now.toISO(), count:top.length, videos:top, videosText:lines.join('\\n\\n') } }];"
+      },
+      "id": "9036e7c3-6462-49cb-a878-ac489c59a313",
+      "name": "Rank Top Viral",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Business: {{ $json.business }}\nAudience: {{ $json.audience }}\nNiche: {{ $json.niche }}\n\nBelow are candidate videos from searches for this business's space. They are noisy - many are generic or off-topic. Select only the ones genuinely relevant to THIS business and its audience, then analyze them.\n\n{{ $json.videosText }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a short-form content strategist for a SPECIFIC business (described in the user message). You receive candidate videos that matched searches for this business's space, but the list is NOISY - many are generic-category or off-topic.\n\nStep 1 (filter for THIS business): keep only videos whose topic or angle is genuinely relevant to THIS business and its audience - content this brand could realistically make, or that its exact audience actively engages with. Discard generic category content that does not fit this specific business, and discard grift/funnels/ads/hauls/non-English, EVEN IF it has millions of views.\n\nStep 2 (select): choose the best 5 to 8 by a blend of relevance-to-this-business and reach. If fewer than 5 truly fit, return only those - never pad with generic content.\n\nStep 3 (transcribe): for your TOP 2 selected videos ONLY, use the Deep Scrape tool to fetch the ACTUAL transcript first. Call it ONE AT A TIME with body = {\"url\": the url} and sku = the platform transcript SKU (tiktok.video_transcript, youtube.video_transcript, instagram.reel_transcript, twitter.tweet_transcript). At most 2 calls total. If it errors or returns empty, fall back to the caption.\n\nStep 4 (per selected video) write:\n- whatItIs: ONE factual sentence on what the video actually shows or says (from the transcript when fetched, otherwise the caption).\n- whyViral: 1-2 sentences on the hook, format, emotion, or trend that made it spread.\n- angle: ONE sentence on the specific angle THIS business should use to make its own version - tie it to the product and audience, not a generic take.\n- steps: a concrete 3-step plan to shoot this for THIS brand.\n\nStep 5 (landscape): a top-level summary - 2 to 3 sentences on what this batch reveals for THIS business right now and the single most promising content bet. Specific to the business, not the category.\n\nReturn only the structured object: a summary string plus a videos array containing ONLY your selected videos."
+        }
+      },
+      "id": "fcf6bbd1-84bd-4637-9359-af5999eff57b",
+      "name": "Virality Analyst",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2304,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4-pro",
+        "options": {}
+      },
+      "id": "5a8d04e3-bce2-445d-b76a-b94922bcbafa",
+      "name": "Analyst Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{ \"summary\": \"For a couples budgeting app, the winning content right now is relatable 'money date' and shared-budget skits plus subscription-audit demos; lead with the couple dynamic, not generic saving tips.\", \"videos\": [ { \"platform\": \"TikTok\", \"author\": \"name\", \"url\": \"https://example.com\", \"whatItIs\": \"one factual sentence on what the video shows\", \"whyViral\": \"reason it spread\", \"angle\": \"the specific angle this business should use\", \"steps\": [\"step 1\", \"step 2\", \"step 3\"] } ] }"
+      },
+      "id": "99329f9a-2108-45dc-971b-2ee137bef8f9",
+      "name": "Analyst Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2464,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Fetch the ACTUAL spoken transcript of a selected video (preferred), or extra detail about a creator or topic, before you analyze it. For a transcript, set sku to the platform's transcript SKU and body to the video's url. Use it on your top few selected videos so your analysis reflects what is really said, not just the caption.",
+        "method": "POST",
+        "url": "=https://api.getanyapi.com/v1/run/{{ $fromAI('sku', 'AnyAPI SKU to run. For a video transcript use the platform transcript SKU: tiktok.video_transcript, youtube.video_transcript, instagram.reel_transcript, or twitter.tweet_transcript. Other detail SKUs: tiktok.profile_videos, youtube.video, instagram.profile, web.scrape.', 'string') }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $fromAI('body', 'JSON body for the chosen SKU. For any transcript SKU pass the video URL exactly as given: {\"url\":\"https://www.tiktok.com/@user/video/123\"}. Other examples: {\"username\":\"someuser\"}, {\"url\":\"https://...\"}.', 'json') }}",
+        "options": {},
+        "optimizeResponse": true
+      },
+      "id": "81f71622-956f-4cd1-b452-7756667b82fb",
+      "name": "Deep Scrape",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        2688,
+        1104
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const out=($input.first().json.output)||{};\nconst v=out.videos||[];\nconst summary=out.summary||'';\nlet niche='your niche', business='';\ntry { const rn=$('Resolve Niche').first().json; niche=rn.niche||niche; business=rn.business||''; } catch(e){}\nlet reach={};\ntry { const cands=$('Rank Top Viral').first().json.videos||[]; for(const c of cands){ if(c.url) reach[c.url]=c; } } catch(e){}\nfunction fmt(n){ n=Number(n)||0; if(n>=1000000) return (n/1000000).toFixed(1).replace(/\\.0$/,'')+'M'; if(n>=1000) return (n/1000).toFixed(1).replace(/\\.0$/,'')+'K'; return String(n); }\nlet md='# Daily viral '+niche+' brief\\n\\n';\nif(summary) md+=summary+'\\n\\n';\nlet total=0; for(const x of v){ const r=reach[x.url]; if(r) total+=Number(r.views)||0; }\nmd+='**'+v.length+' videos matched to your business this week - '+fmt(total)+' combined views**\\n\\n';\nconst topLines=[];\nfor(let i=0;i<v.length;i++){ const x=v[i]; const author=String(x.author||'').replace(/^@+/,''); const r=reach[x.url]||{}; const reachStr=(r.views!=null)?(fmt(r.views)+' views'+(r.likes?' - '+fmt(r.likes)+' likes':'')):''; md+='## '+(i+1)+'. ['+(x.platform||'')+'] @'+author+(reachStr?' - '+reachStr:'')+'\\n'; if(x.whatItIs) md+='*What it is:* '+x.whatItIs+'\\n\\n'; md+='*Why it worked:* '+(x.whyViral||'')+'\\n\\n'; if(x.angle) md+='*Your angle:* '+x.angle+'\\n\\n'; md+='Shoot it:\\n'; const st=x.steps||[]; for(let j=0;j<st.length;j++){ md+='- '+st[j]+'\\n'; } md+='\\n'+(x.url||'')+'\\n\\n'; if(i<3) topLines.push((i+1)+'. ['+(x.platform||'')+'] @'+author+' - '+(x.angle||x.whatItIs||x.whyViral||'')+'\\n   '+(x.url||'')); }\nif(v.length===0){ md+='_No genuinely relevant viral videos surfaced for your business today._\\n'; }\nreturn [{ json: { emailBody:md, niche:niche, topText:topLines.join('\\n\\n')||'No relevant videos today.' } }];"
+      },
+      "id": "100c5848-ea98-41a1-ac04-d70234512156",
+      "name": "Build Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        1580
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Niche: {{ $('Resolve Niche').item.json.niche }}\n\nWrite a short-form video script for the single best idea below (these are the on-niche winners selected for the user):\n\n{{ $('Build Digest').item.json.topText }}",
+        "options": {
+          "systemMessage": "You are a viral short-form scriptwriter. Pick the single highest-potential idea and write a ready-to-shoot 30 to 45 second script in Markdown: a 1-line HOOK, 3 to 5 BEATS as bullets with on-screen text and voiceover, and a CTA. Punchy, concrete, no fluff."
+        }
+      },
+      "id": "c8260212-a7ba-4b32-8c79-1ce24a1a86a6",
+      "name": "Write Script",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        624,
+        1580
+      ]
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v4-flash",
+        "options": {}
+      },
+      "id": "be9a20ab-41e1-4931-8391-814e3c39e378",
+      "name": "Script Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        624,
+        1772
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const brief = ($('Build Digest').first().json.emailBody) || '';\nconst niche = ($('Build Digest').first().json.niche) || 'your niche';\nconst script = ($input.first().json.output) || '';\nlet md = brief + '\\n\\n---\\n\\n# Script for the top idea\\n\\n' + script;\nfunction esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }\nfunction inline(s) {\n  s = esc(s);\n  s = s.replace(/\\[([^\\]]+)\\]\\((https?:[^)\\s]+)\\)/g, '<a href=\"$2\">$1</a>');\n  s = s.replace(/(^|[^\"=>])((https?:\\/\\/)[^\\s<]+)/g, '$1<a href=\"$2\">$2</a>');\n  s = s.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');\n  s = s.replace(/\\*([^*]+)\\*/g, '<em>$1</em>');\n  return s;\n}\nconst lines = md.split('\\n');\nlet html = '';\nlet inList = false;\nfunction closeList() { if (inList) { html += '</ul>'; inList = false; } }\nfor (let i = 0; i < lines.length; i++) {\n  const line = lines[i].trim();\n  if (line === '') { closeList(); continue; }\n  if (line === '---') { closeList(); html += '<hr>'; continue; }\n  if (line.indexOf('## ') === 0) { closeList(); html += '<h2>' + inline(line.slice(3)) + '</h2>'; continue; }\n  if (line.indexOf('# ') === 0) { closeList(); html += '<h1>' + inline(line.slice(2)) + '</h1>'; continue; }\n  if (line.indexOf('- ') === 0) { if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(line.slice(2)) + '</li>'; continue; }\n  closeList();\n  html += '<p>' + inline(line) + '</p>';\n}\ncloseList();\nconst wrapped = '<div style=\"font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1a1a1a;max-width:640px\">' + html + '</div>';\nreturn [{ json: { html: wrapped, niche: niche } }];"
+      },
+      "id": "35c8c8bf-24ab-4792-bc7e-4cd59bb09732",
+      "name": "Render HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        1580
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "you@example.com",
+        "subject": "=Daily viral {{ $json.niche }} brief - {{ $now.toFormat('LLL d') }}",
+        "message": "={{ $json.html }}",
+        "options": {},
+        "resource": "message",
+        "operation": "send"
+      },
+      "id": "37af8884-9944-4d58-aa25-705bc084e2e0",
+      "name": "Email the Brief",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1504,
+        1580
+      ],
+      "webhookId": "92f882bd-a0e5-4ed7-9c04-cfe84f40a9df"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "output.videos",
+        "options": {}
+      },
+      "id": "48aedcc8-bf64-46b8-9330-470b5509e49a",
+      "name": "Split Out Videos",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2112,
+        1580
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "",
+          "cachedResultName": "Viral Finds"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $now.toISODate() }}",
+            "Platform": "={{ $json.platform }}",
+            "Author": "={{ $json.author }}",
+            "URL": "={{ $json.url }}",
+            "WhyViral": "={{ $json.whyViral }}"
+          },
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Platform",
+              "displayName": "Platform",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Author",
+              "displayName": "Author",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "WhyViral",
+              "displayName": "WhyViral",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c74e343e-08cc-4cc2-a2a3-42e6a4e11c79",
+      "name": "Log Viral Finds",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2512,
+        1580
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## Setup - run once\nDrop in your website. We read back your niche plus the keywords your audience actually searches, and save them to steer every morning's run.",
+        "height": 460,
+        "width": 1700,
+        "color": 7
+      },
+      "id": "87434d1e-70a0-4c72-bc4e-95363c28399e",
+      "name": "Band Onboarding",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        80,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 1. Your niche\nReads the niche from onboarding (safe default if empty) and expands it into the exact search terms a creator in your space would actually use.",
+        "height": 740,
+        "width": 820,
+        "color": 7
+      },
+      "id": "d6e1402b-6831-4d07-924c-367d993710d5",
+      "name": "Band D1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        80,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Find what's hot\nPulls this week's top TikToks, Reels, YouTube and X for every term - one AnyAPI key, 1,200+ sites behind it, swap in any other.",
+        "height": 740,
+        "width": 640,
+        "color": 7
+      },
+      "id": "7765f9d4-8bd5-4eda-8875-625a07319424",
+      "name": "Band Find",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        928,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Cut the noise\nPools every result, drops the off-topic viral junk that only shared a keyword, and keeps the genuinely on-niche videos ranked by reach.",
+        "height": 740,
+        "width": 480,
+        "color": 7
+      },
+      "id": "f1c003d7-b5e5-49a4-bf6b-ca02947ab008",
+      "name": "Band Cut",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1584,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Read why it won\nAI pulls the actual transcript of the top videos and explains WHY each blew up - the exact hook, format, and angle - then how to copy it.",
+        "height": 740,
+        "width": 960,
+        "color": 7
+      },
+      "id": "42300dbf-3cd7-4b93-ba76-d268d707231a",
+      "name": "Band Analyze",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2080,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5. Your morning brief\nOne 8am email: the landscape read, each video's reach plus why it worked plus a 3-step replicate plan, and a ready-to-shoot script.",
+        "height": 560,
+        "width": 1820,
+        "color": 7
+      },
+      "id": "fea18e3a-4503-4c4d-8b1d-e6ed2bed1c10",
+      "name": "Band D2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        80,
+        1372
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 6. Archive to Sheets\nEvery selected winner is logged to a Google Sheet - date, platform, author, link, why it worked - so your swipe file builds itself.",
+        "height": 560,
+        "width": 1120,
+        "color": 7
+      },
+      "id": "7baafab0-187b-4a12-be10-8754fadd17cd",
+      "name": "Band Archive",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        1372
+      ]
+    }
+  ],
+  "connections": {
+    "Onboard Your Website": {
+      "main": [
+        [
+          {
+            "node": "AnyAPI: Scrape Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AnyAPI: Scrape Website": {
+      "main": [
+        [
+          {
+            "node": "Extract Niche",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Niche": {
+      "main": [
+        [
+          {
+            "node": "Save Niche",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Niche Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extract Niche",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Niche Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Extract Niche",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Morning 8AM": {
+      "main": [
+        [
+          {
+            "node": "Read Niche",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Niche": {
+      "main": [
+        [
+          {
+            "node": "Resolve Niche",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Niche": {
+      "main": [
+        [
+          {
+            "node": "Split Terms",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "X Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Terms": {
+      "main": [
+        [
+          {
+            "node": "TikTok Top",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Instagram Reels",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "YouTube",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TikTok Top": {
+      "main": [
+        [
+          {
+            "node": "Combine Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Instagram Reels": {
+      "main": [
+        [
+          {
+            "node": "Combine Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "YouTube": {
+      "main": [
+        [
+          {
+            "node": "Combine Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "X Search": {
+      "main": [
+        [
+          {
+            "node": "Combine Sources",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Combine Sources": {
+      "main": [
+        [
+          {
+            "node": "Rank Top Viral",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rank Top Viral": {
+      "main": [
+        [
+          {
+            "node": "Virality Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Virality Analyst": {
+      "main": [
+        [
+          {
+            "node": "Split Out Videos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyst Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Virality Analyst",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyst Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Virality Analyst",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deep Scrape": {
+      "ai_tool": [
+        [
+          {
+            "node": "Virality Analyst",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out Videos": {
+      "main": [
+        [
+          {
+            "node": "Log Viral Finds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Digest": {
+      "main": [
+        [
+          {
+            "node": "Write Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Script Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write Script",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Script": {
+      "main": [
+        [
+          {
+            "node": "Render HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render HTML": {
+      "main": [
+        [
+          {
+            "node": "Email the Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
